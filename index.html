@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>For you</title>
+<style>
+  html, body { height: 100%; margin: 0; background: #000; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden; color: #f7b6d8;
+    font-family: "Georgia", "Times New Roman", serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #wrap { position: relative; width: min(92vmin, 700px); aspect-ratio: 1; }
+  canvas {
+    width: 100%; height: 100%; display: block;
+    filter: drop-shadow(0 0 18px rgba(255, 120, 190, .22));
+  }
+  canvas.beat { animation: breathe 6s ease-in-out infinite; }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1);     filter: drop-shadow(0 0 14px rgba(255,120,190,.16)); }
+    50%      { transform: scale(1.018); filter: drop-shadow(0 0 26px rgba(255,120,190,.30)); }
+  }
+  #msg {
+    margin: 2.2vmin 0 0; padding: 0 28px; text-align: center;
+    font-size: clamp(14px, 2.4vw, 18px); font-style: italic; letter-spacing: .12em;
+    color: rgba(255, 255, 255, .55);
+    opacity: 0; transition: opacity 5s ease;
+  }
+  #msg.show { opacity: 1; }
+  #msg:empty { display: none; }
+  @media (prefers-reduced-motion: reduce) { canvas.beat { animation: none; } }
+</style>
+</head>
+<body>
+  <div id="wrap"><canvas id="c" width="1400" height="1400"></canvas></div>
+  <p id="msg"></p>
+
+<script>
+/* ====== EDIT THESE ====== */
+// Leave empty for a silent heart, or add one short, quiet line (e.g. a name).
+const MESSAGE = "";
+/* ======================== */
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const msg = document.getElementById("msg");
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+// Same parametric heart as the Python version
+function heart(a, scale) {
+  const x = 16 * Math.pow(Math.sin(a), 3) * scale;
+  const y = (13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) * scale;
+  return [x, y];
+}
+
+// Draw one fuzzy hair (y is flipped: turtle's y goes up, canvas's goes down)
+function hair(x, y, len, ang, r, g, b, w) {
+  ctx.strokeStyle = `rgb(${r * 255 | 0},${g * 255 | 0},${b * 255 | 0})`;
+  ctx.lineWidth = w;
+  ctx.beginPath();
+  ctx.moveTo(x, -y);
+  ctx.lineTo(x + Math.cos(ang) * len, -(y + Math.sin(ang) * len));
+  ctx.stroke();
+}
+
+// Three layers, drawn one after another
+const layers = [
+  { count: 10000, perFrame: 18, draw() {            // soft fur inside the heart
+      const a = rnd(0, 2 * Math.PI), sc = rnd(0.5, 15.5);
+      const [x, y] = heart(a, sc);
+      const ang = Math.atan2(y, x) + rnd(-0.5, 0.5);
+      hair(x, y, rnd(4, 14), ang, 1, rnd(0.25, 0.55), rnd(0.65, 0.85), rnd(0.5, 1.2));
+  }},
+  { count: 3500, perFrame: 10, draw() {             // glowing edge
+      const a = rnd(0, 2 * Math.PI);
+      const [x, y] = heart(a, 16);
+      const ang = Math.atan2(y, x) + rnd(-0.35, 0.35);
+      hair(x, y, rnd(10, 32), ang, 1, rnd(0.45, 0.75), rnd(0.75, 0.95), rnd(0.4, 0.9));
+  }}
+];
+
+let runId = 0;
+
+function start() {
+  const id = ++runId;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, 1400, 1400);
+  ctx.setTransform(2, 0, 0, 2, 700, 700);   // 700x700 logical space, centred, 2x sharpness
+  ctx.lineCap = "round";
+  canvas.classList.remove("beat");
+  msg.classList.remove("show");
+  msg.textContent = "";
+
+  let layer = 0, done = 0;
+  function frame() {
+    if (id !== runId) return;
+    const L = layers[layer];
+    for (let i = 0; i < L.perFrame && done < L.count; i++, done++) L.draw();
+    if (done >= L.count) { layer++; done = 0; }
+    if (layer < layers.length) return requestAnimationFrame(frame);
+    canvas.classList.add("beat");
+    msg.textContent = MESSAGE;
+    setTimeout(() => msg.classList.add("show"), 1500);
+  }
+  requestAnimationFrame(frame);
+}
+
+document.body.addEventListener("click", start);
+start();
+</script>
+</body>
+</html>
